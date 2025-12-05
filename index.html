@@ -10,11 +10,12 @@
   label{display:block;margin-top:10px;font-weight:600}
   input, select, textarea { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; }
   button{margin-top:14px;padding:12px 16px;font-weight:700}
-  .row { display:flex; gap:8px; }
-  .col2 { flex:1; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .col2 { flex:1; min-width:150px; }
   .small { width:140px; }
   .success{background:#e6ffed;border-left:4px solid #2aa44f;padding:10px;margin-top:12px}
   .error{background:#ffe6e6;border-left:4px solid #d33;padding:10px;margin-top:12px}
+  .info{background:#eef6ff;border-left:4px solid #2b7cff;padding:10px;margin-top:12px}
 </style>
 </head>
 <body>
@@ -29,11 +30,15 @@
 
     <div class="row">
       <div class="col2"><label>Pincode<input name="pincode" required></label></div>
-      <div class="col2"><label>State<input name="state" required></label></div>
+      <div class="col2"><label>State
+        <select name="state" id="state" required></select>
+      </label></div>
     </div>
 
     <div class="row">
-      <div class="col2"><label>District<input name="district" required></label></div>
+      <div class="col2"><label>District
+        <select name="district" id="district" required></select>
+      </label></div>
       <div class="col2"><label>Email ID<input type="email" name="email"></label></div>
     </div>
 
@@ -70,18 +75,96 @@
   <div id="msg"></div>
 
 <script>
+  // ---- Config ----
   const POST_URL = 'https://script.google.com/macros/s/AKfycbxhOKkaGaLJfjVU72gX1Px7VWoC0D1Ub5AI1IMWXkZTQzkTa92DaR0UkbQ4JE3NqRfj/exec';
+  // ----------------
+
+  // Indian States (full list)
+  const states = [
+    "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa",
+    "Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
+    "Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
+    "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
+    "Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands",
+    "Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir",
+    "Ladakh","Lakshadweep","Puducherry"
+  ];
+
+  // Districts mapping (Kerala full, plus useful sets for some other states)
+  const districts = {
+    "Kerala": [
+      "Thiruvananthapuram","Kollam","Pathanamthitta","Alappuzha","Kottayam",
+      "Idukki","Ernakulam","Thrissur","Palakkad","Malappuram","Kozhikode",
+      "Wayanad","Kannur","Kasaragod"
+    ],
+    "Karnataka": [
+      "Bagalkot","Ballari","Belagavi","Bengaluru Urban","Bengaluru Rural",
+      "Bidar","Chamarajanagar","Chikkamagaluru","Chitradurga","Dakshina Kannada",
+      "Davanagere","Dharwad","Gadag","Hassan","Haveri","Kalaburagi","Kodagu",
+      "Kolar","Koppal","Mandya","Mysuru","Raichur","Ramanagara","Shivamogga",
+      "Tumakuru","Udupi","Uttara Kannada","Vijayapura","Yadgir"
+    ],
+    "Tamil Nadu": [
+      "Ariyalur","Chennai","Coimbatore","Cuddalore","Dharmapuri","Dindigul",
+      "Erode","Kanchipuram","Kanyakumari","Karur","Krishnagiri","Madurai",
+      "Nagapattinam","Namakkal","Perambalur","Pudukkottai","Ramanathapuram",
+      "Salem","Sivaganga","Thanjavur","Theni","Thiruvallur","Thiruvarur",
+      "Thoothukudi","Tiruchirappalli","Tirunelveli","Tiruppur","Tiruvannamalai",
+      "Vellore","Villupuram","Virudhunagar"
+    ],
+    "Maharashtra": [
+      "Mumbai","Mumbai Suburban","Pune","Thane","Nashik","Nagpur","Aurangabad",
+      "Solapur","Kolhapur","Satara","Amravati","Akola","Jalgaon","Sangli","Latur"
+    ],
+    "Uttar Pradesh": [
+      "Agra","Aligarh","Allahabad (Prayagraj)","Ambedkar Nagar","Amethi","Amroha",
+      "Auraiya","Azamgarh","Baghpat","Bahraich","Ballia","Balrampur","Banda",
+      "Barabanki","Bareilly","Basti","Bhadohi","Bijnor","Budaun","Bulandshahr",
+      "Chandauli","Chitrakoot","Deoria","Etah","Etawah","Farrukhabad","Fatehpur",
+      "Firozabad","Gautam Buddha Nagar (Noida)","Ghaziabad","Ghazipur","Gonda",
+      "Gorakhpur","Hamirpur","Hardoi","Hathras","Jalaun","Jaunpur","Jhansi",
+      "Jyotiba Phule Nagar (Amroha)","Kanpur Dehat","Kanpur Nagar","Kanshiram Nagar",
+      "Kushinagar","Lalitpur","Lucknow","Maharajganj","Mainpuri","Mathura","Mau",
+      "Meerut","Mirzapur","Moradabad","Muzaffarnagar","Pilibhit","Pratapgarh",
+      "Raebareli","Rampur","Saharanpur","Sambhal","Sant Kabir Nagar","Shahjahanpur",
+      "Shamli","Shravasti","Siddharthnagar","Sitapur","Sultanpur","Unnao","Varanasi"
+    ],
+    // Add more states & districts as needed. States not included will show "No districts available".
+  };
+
+  // Populate state dropdown
+  const stateSelect = document.getElementById("state");
+  const districtSelect = document.getElementById("district");
+  stateSelect.innerHTML = `<option value="">Select State</option>`;
+  states.forEach(s => stateSelect.innerHTML += `<option value="${s}">${s}</option>`);
+
+  // Populate district when state changes
+  stateSelect.addEventListener('change', () => {
+    const s = stateSelect.value;
+    districtSelect.innerHTML = '';
+    if (!s) {
+      districtSelect.innerHTML = `<option value="">Select district</option>`;
+      return;
+    }
+    if (districts[s]) {
+      districtSelect.innerHTML = `<option value="">Select district</option>`;
+      districts[s].forEach(d => districtSelect.innerHTML += `<option value="${d}">${d}</option>`);
+    } else {
+      districtSelect.innerHTML = `<option value="">No districts available</option>`;
+    }
+  });
+
+  // Form submit: try JSON fetch first, fallback to regular form post (iframe)
   const form = document.getElementById('interestForm');
   const msg = document.getElementById('msg');
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    msg.innerHTML = '<div class="">Submitting…</div>';
+    msg.innerHTML = `<div class="info">Submitting…</div>`;
 
     const data = Object.fromEntries(new FormData(form).entries());
     data.phone = data.phone ? data.phone.replace(/\s+/g,'') : '';
 
-    // Try JSON fetch first
     try {
       const res = await fetch(POST_URL, {
         method: 'POST',
@@ -89,29 +172,26 @@
         body: JSON.stringify(data),
       });
 
-      // if response isn't JSON or network blocked, this may throw in parsing
+      // Try parse JSON response
       const j = await res.json();
       if (j && j.status === 'success') {
         msg.innerHTML = '<div class="success">Saved ✓ — Next record ready.</div>';
         form.reset();
         return;
       } else {
-        // fallback to form POST if server returned non-success
-        fallbackSubmit();
+        // Server returned something else: fallback
+        fallbackSubmit('Server returned error — using fallback submit.');
       }
     } catch (err) {
-      // likely CORS or network error — fallback to regular form submit (hidden iframe)
-      fallbackSubmit();
+      // Likely CORS or network error — use fallback
+      fallbackSubmit('Network/CORS — using fallback submit.');
     }
   });
 
-  function fallbackSubmit(){
-    // Submit the form normally to the Apps Script using the hidden iframe target.
-    // The Apps Script will receive the fields as e.parameter.
+  function fallbackSubmit(note = '') {
     try {
-      form.submit();
-      // We cannot reliably read iframe response because of cross-origin, so just assume success.
-      msg.innerHTML = '<div class="success">Submitted (via form). If you do not see the row in Google Sheets in a few seconds, inform admin.</div>';
+      form.submit(); // will POST to Apps Script via hidden iframe
+      msg.innerHTML = `<div class="success">Submitted (via form). ${note} If you do not see the row in Google Sheets in a few seconds, inform admin.</div>`;
       form.reset();
     } catch (e) {
       msg.innerHTML = '<div class="error">Unable to submit: ' + e.toString() + '</div>';
@@ -120,4 +200,3 @@
 </script>
 </body>
 </html>
-
