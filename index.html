@@ -19,7 +19,11 @@
 </head>
 <body>
   <h1>KFON — Customer Interest Form</h1>
-  <form id="interestForm">
+
+  <!-- Hidden iframe fallback target -->
+  <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+
+  <form id="interestForm" method="post" action="https://script.google.com/macros/s/AKfycbxhOKkaGaLJfjVU72gX1Px7VWoC0D1Ub5AI1IMWXkZTQzkTa92DaR0UkbQ4JE3NqRfj/exec" target="hidden_iframe">
     <label>Customer Name<input type="text" name="customerName" required></label>
     <label>Address<textarea name="address" rows="2" required></textarea></label>
 
@@ -66,37 +70,53 @@
   <div id="msg"></div>
 
 <script>
-  const POST_URL = 'https://script.google.com/macros/s/AKfycbxhOKkaGaLJfjVU72gX1Px7VWoC0D1Ub5AI1IMWXkZTQzkTa92DaR0UkbQ4JE3NqRfj/exec'; // <- change this
-
+  const POST_URL = 'https://script.google.com/macros/s/AKfycbxhOKkaGaLJfjVU72gX1Px7VWoC0D1Ub5AI1IMWXkZTQzkTa92DaR0UkbQ4JE3NqRfj/exec';
   const form = document.getElementById('interestForm');
   const msg = document.getElementById('msg');
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    msg.innerHTML = '';
+    msg.innerHTML = '<div class="">Submitting…</div>';
 
     const data = Object.fromEntries(new FormData(form).entries());
-    // minor sanitization
     data.phone = data.phone ? data.phone.replace(/\s+/g,'') : '';
 
+    // Try JSON fetch first
     try {
-      // Send as JSON POST
-      const r = await fetch(POST_URL, {
+      const res = await fetch(POST_URL, {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(data),
       });
-      const j = await r.json();
-      if (j.status === 'success') {
+
+      // if response isn't JSON or network blocked, this may throw in parsing
+      const j = await res.json();
+      if (j && j.status === 'success') {
         msg.innerHTML = '<div class="success">Saved ✓ — Next record ready.</div>';
         form.reset();
+        return;
       } else {
-        msg.innerHTML = '<div class="error">Error: ' + (j.message || 'unknown') + '</div>';
+        // fallback to form POST if server returned non-success
+        fallbackSubmit();
       }
     } catch (err) {
-      msg.innerHTML = '<div class="error">Network or server error: ' + err.toString() + '</div>';
+      // likely CORS or network error — fallback to regular form submit (hidden iframe)
+      fallbackSubmit();
     }
   });
+
+  function fallbackSubmit(){
+    // Submit the form normally to the Apps Script using the hidden iframe target.
+    // The Apps Script will receive the fields as e.parameter.
+    try {
+      form.submit();
+      // We cannot reliably read iframe response because of cross-origin, so just assume success.
+      msg.innerHTML = '<div class="success">Submitted (via form). If you do not see the row in Google Sheets in a few seconds, inform admin.</div>';
+      form.reset();
+    } catch (e) {
+      msg.innerHTML = '<div class="error">Unable to submit: ' + e.toString() + '</div>';
+    }
+  }
 </script>
 </body>
 </html>
