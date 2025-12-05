@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>KFON Customer Interest</title>
 <style>
-  body { font-family: Arial, sans-serif; padding: 12px; max-width: 720px; margin: auto; }
+  body { font-family: Arial, sans-serif; padding: 12px; max-width: 900px; margin: auto; }
   h1{font-size:1.2rem}
   label{display:block;margin-top:10px;font-weight:600}
   input, select, textarea { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; }
@@ -16,6 +16,7 @@
   .success{background:#e6ffed;border-left:4px solid #2aa44f;padding:10px;margin-top:12px}
   .error{background:#ffe6e6;border-left:4px solid #d33;padding:10px;margin-top:12px}
   .info{background:#eef6ff;border-left:4px solid #2b7cff;padding:10px;margin-top:12px}
+  .muted { font-weight:400; font-size:0.9rem; color:#555; margin-top:6px; }
 </style>
 </head>
 <body>
@@ -53,7 +54,22 @@
 
     <label>If yes which ISP<input name="whichIsp" placeholder="e.g. Airtel / Jio / Local ISP"></label>
 
-    <label>LNP Name (Local Cable Operator)<input name="lnpName"></label>
+    <!-- LNP Name + Automatic FE Name -->
+    <div class="row">
+      <div class="col2">
+        <label>LNP Name (Local Cable Operator)
+          <select name="lnpName" id="lnpName">
+            <option value="">Select LNP / Company</option>
+          </select>
+        </label>
+      </div>
+      <div class="col2">
+        <label>FE Name (auto-filled)
+          <input name="feName" id="feName" readonly placeholder="FE will appear here">
+        </label>
+      </div>
+    </div>
+
     <label>Plan Needed<input name="planNeeded" placeholder="e.g. 100 Mbps / 200 GB"></label>
 
     <div class="row">
@@ -112,25 +128,152 @@
       "Thoothukudi","Tiruchirappalli","Tirunelveli","Tiruppur","Tiruvannamalai",
       "Vellore","Villupuram","Virudhunagar"
     ],
-    "Maharashtra": [
-      "Mumbai","Mumbai Suburban","Pune","Thane","Nashik","Nagpur","Aurangabad",
-      "Solapur","Kolhapur","Satara","Amravati","Akola","Jalgaon","Sangli","Latur"
-    ],
-    "Uttar Pradesh": [
-      "Agra","Aligarh","Allahabad (Prayagraj)","Ambedkar Nagar","Amethi","Amroha",
-      "Auraiya","Azamgarh","Baghpat","Bahraich","Ballia","Balrampur","Banda",
-      "Barabanki","Bareilly","Basti","Bhadohi","Bijnor","Budaun","Bulandshahr",
-      "Chandauli","Chitrakoot","Deoria","Etah","Etawah","Farrukhabad","Fatehpur",
-      "Firozabad","Gautam Buddha Nagar (Noida)","Ghaziabad","Ghazipur","Gonda",
-      "Gorakhpur","Hamirpur","Hardoi","Hathras","Jalaun","Jaunpur","Jhansi",
-      "Jyotiba Phule Nagar (Amroha)","Kanpur Dehat","Kanpur Nagar","Kanshiram Nagar",
-      "Kushinagar","Lalitpur","Lucknow","Maharajganj","Mainpuri","Mathura","Mau",
-      "Meerut","Mirzapur","Moradabad","Muzaffarnagar","Pilibhit","Pratapgarh",
-      "Raebareli","Rampur","Saharanpur","Sambhal","Sant Kabir Nagar","Shahjahanpur",
-      "Shamli","Shravasti","Siddharthnagar","Sitapur","Sultanpur","Unnao","Varanasi"
-    ],
-    // Add more states & districts as needed. States not included will show "No districts available".
+    // add other states if you need
   };
+
+  // LNP mapping: company -> FE name
+  const lnpMapping = {
+    "METRO CABLE VISION": "RAJATH KRISHNA",
+    "RIZA ELECTRONICS AND CABLES TV": "",
+    "METRO DIGITAL VISION": "RAJATH KRISHNA",
+    "VEGA VISION": "ABHIJITH VR",
+    "CHANNEL TRACK CABLE NETWORK": "ABHIJITH VR",
+    "NEWSTAR CABLE TV NETWORK": "ASWIN MOHAN",
+    "JEEVAN CABLE NETWORK": "",
+    "NEW CABLE VISION": "ABHIJITH VR",
+    "MEDIA VISION DIGITAL NETWORK": "ABHIJITH VR",
+    "SPACE CABLE NETWORK": "ASWIN MOHAN",
+    "THASNI VISION CABLE TV NETWORK": "ASWIN MOHAN",
+    "CITY STAR CABLE TV NETWORK": "ABHIJITH VR",
+    "AKASH CABLE VISION": "ASWIN MOHAN",
+    "HI- TECH CABLE NETWORK": "ASWIN MOHAN",
+    "AISWARYA TV SERVICE": "ABHIJITH VR",
+    "MAX VISION CABLE NETWORK": "ASWIN MOHAN",
+    "STAR VISION CABLE NETWORK": "ABHIJITH VR",
+    "FAST AND FRIENDLY CABLE NETWORK": "ASWIN MOHAN",
+    "AMRUTHA CABLE TV": "ABHIJITH VR",
+    "ROYAL CABLE NETWORK": "ABHIJITH VR",
+    "K LINK NETWORK": "ABHIJITH VR",
+    "GLOBAL VISION CABLE TV": "ASWIN MOHAN",
+    "PLESENT CABLE TV NETWORK": "RAJATH KRISHNA",
+    "KUPPADI CABLE NETWORK": "BIJU M T",
+    "JJ VISION": "ABHIJITH VR",
+    "EYE VISION CABLE TV NETWORK": "ABHIJITH VR",
+    "VADAKKANAD CABLE VISION": "BIJU M T",
+    "H I VISION": "ABHIJITH VR",
+    "TELLSMART TECH": "ASWIN MOHAN",
+    "V SAT CABLE VISION": "ASWIN MOHAN",
+    "UDAYAM CABLE TV NETWORK": "RAJATH KRISHNA",
+    "CABLE VISION CABLE TV": "RAJATH KRISHNA",
+    "NADAVAYAL CABLE VISION": "RAJATH KRISHNA",
+    "STAR CABLE NETWORK": "RAJATH KRISHNA",
+    "DRISHYAM CABLE TV": "ASWIN MOHAN",
+    "NAVITHA CABLE NETWORK": "RAJATH KRISHNA",
+    "SREE VISION CABLE TV NETWORK": "ASWIN MOHAN",
+    "DARSANA COMMUNICATIONS": "BIJU M T",
+    "VISMAYA CABLE TV  NETWORK": "ASWIN MOHAN",
+    "POWER WAY CABLE TV NETWORK": "ABHIJITH VR",
+    "SPEEDON CABLE NETWORK": "ASWIN MOHAN",
+    "DREAM CABLE VISION": "ABHIJITH VR",
+    "DIGITAL SYSTEMS": "RAJATH KRISHNA",
+    "DRISHYA CABLE TV": "BIJU M T",
+    "ZEE TECH CABLE": "BIJU M T",
+    "NEW STAR CABLE VISION": "ASWIN MOHAN",
+    "DIGITAL VISION CABLE TV": "ASWIN MOHAN",
+    "RINEESH CABLE NETWORK": "ASWIN MOHAN",
+    "TIME VISION": "ABHIJITH VR",
+    "BS CABLE NETWORK": "ASWIN MOHAN",
+    "MALANAD VISION CABLE TV NETWORK": "RAJATH KRISHNA",
+    "CITY CABLE NETWORK": "ABHIJITH VR",
+    "DIGITAL CABLE AND INTERNET SERVICES": "ASWIN MOHAN",
+    "BEST VISION CABLE  NETWORK": "BIJU M T",
+    "NEW MAX CABLE NETWORK": "ABHIJITH VR",
+    "TRUE VISION CABLE TV": "ABHIJITH VR",
+    "SKY CABLE NETWORK": "ASWIN MOHAN",
+    "CHANNEL SYSTEM": "ABHIJITH VR",
+    "WINNER SAT CABLE TV NETWORK": "ASWIN MOHAN",
+    "STAR VISION CABLE NETWORK": "ASWIN MOHAN",
+    "STAR CABLE NETWORK": "BIJU M T",
+    "VISION TECH CABLE NETWORK": "BIJU M T",
+    "NELLIKANATHIL CABLE VISION": "ABHIJITH VR",
+    "C H CABLE NETWORK": "BIJU M T",
+    "STAR VISION": "ABHIJITH VR",
+    "MAX CABLE NETWORK": "ASWIN MOHAN",
+    "STARPLUS CABLE NETWORK": "ASWIN MOHAN",
+    "SD VISION CABLE NETWORK": "ABHIJITH VR",
+    "SKY NET CABLE TV NETWORK": "RAJATH KRISHNA",
+    "N J VISION": "ABHIJITH VR",
+    "S4 VISION CABLE NETWORK": "ABHIJITH VR",
+    "NEW STAR CABLE TV": "ABHIJITH VR",
+    "UNITED CABLE NETWORK": "ASWIN MOHAN",
+    "DIGIMAX DIGITAL NETWORK": "ASWIN MOHAN",
+    "DIGI MAX DIGITAL CABLE NETWORK": "ABHIJITH VR",
+    "SYMPHONY CABLE NETWORK": "ABHIJITH VR",
+    "TECHNO VISION CABLE NETWORK": "BIJU M T",
+    "SILVER STAR CABLE VISION": "BIJU M T",
+    "SAT VISION CABLE NETWORK": "BIJU M T",
+    "JYOTHI CABLE NETWORK": "ABHIJITH VR",
+    "SRUTHI CABLE VISION": "ASWIN MOHAN",
+    "NEW WORLD CABLE": "RAJATH KRISHNA",
+    "SAT LINK CABLE T V NETWORK": "RAJATH KRISHNA",
+    "MIDHUN CABLE NETWORK": "RAJATH KRISHNA",
+    "OLEEVIA CABLE NETWORK": "RAJATH KRISHNA",
+    "OLEEVIA PKR CABLE NETWORK": "RAJATH KRISHNA",
+    "CITIZEN CABLE NETWORK": "RAJATH KRISHNA",
+    "SURYA SYSTEMS CABLE TV NETWORK": "ABHIJITH VR",
+    "SURYA CABLE TV NETWORK": "ABHIJITH VR",
+    "DAY STAR CABLE NETWORK": "RAJATH KRISHNA",
+    "STAR TECH CABLE VISION": "ASWIN MOHAN",
+    "PUTHIYADAM CABLE NETWORK": "ABHIJITH VR",
+    "NKT CABLE NETWORK": "BIJU M T",
+    "GRAND MEDIA CABLE T V NETWORK": "RAJATH KRISHNA",
+    "SUN CBLE NETWORK": "BIJU M T",
+    "WORLD VISION CABLE NETWORK": "ASWIN MOHAN",
+    "TECHNO CABLES": "BIJU M T",
+    "NOVELTY VISION": "RAJATH KRISHNA",
+    "METRO CABLE VISION": "RAJATH KRISHNA",
+    "MCN CABLE NETWORK": "BIJU M T",
+    "MANIKUNI STATE CABLE TV NETWORK": "BIJU M T",
+    "ASIATECHCABLE NETWORK": "BIJU M T",
+    "ASIATECH CABLE TV": "BIJU M T",
+    "EBENEZER CABLE NETWORK": "BIJU M T",
+    "MANICHIRA CABLE TV NETWORK": "BIJU M T",
+    "SRUTHI CABLE NETWORK": "BIJU M T",
+    "GLOBAL VISION CABLE NETWORK": "ASWIN MOHAN",
+    "EURO CABLE NETWORK": "ASWIN MOHAN",
+    "SPACE CABLE TV NETWORK": "ASWIN MOHAN",
+    "BRIGHT CABLE  NETWORK": "ASWIN MOHAN",
+    "STAR VIEW CABLE": "BIJU M T",
+    "SKYLINE CABLE TV": "RAJATH KRISHNA",
+    "TRUE ONE CABLE TV NETWORK": "BIJU M T",
+    "GALAXY CABLE NETWORK": "BIJU M T",
+    "IDEAL CABLE NETWORK": "ASWIN MOHAN",
+    "SAT LAND CABLE TV NETWORK": "ASWIN MOHAN",
+    "New asian cable network": "ASWIN MOHAN",
+    "EYETECH CABLE TV NETWORK": "RAJATH KRISHNA",
+    "AMMA CABLE TV NETWORK": "ABHIJITH VR",
+    "CHAITHANYA CABLE NETWORK": "",
+    "B4U CABLE NETWORK": ""
+  };
+
+  // Build LNP dropdown
+  const lnpSelect = document.getElementById('lnpName');
+  Object.keys(lnpMapping).sort().forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    lnpSelect.appendChild(opt);
+  });
+
+  // FE name field
+  const feInput = document.getElementById('feName');
+  lnpSelect.addEventListener('change', () => {
+    const sel = lnpSelect.value;
+    const fe = lnpMapping[sel] || '';
+    feInput.value = fe;
+    // Also set the hidden form field value for backend (Apps Script expects lnpName only; we also include feName field)
+    // ensure the feName input has name attribute so it gets posted
+  });
 
   // Populate state dropdown
   const stateSelect = document.getElementById("state");
@@ -158,6 +301,9 @@
   const form = document.getElementById('interestForm');
   const msg = document.getElementById('msg');
 
+  // Ensure feName will be submitted: give input a name attribute (already set in markup)
+  // If feName was readonly it still posts.
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     msg.innerHTML = `<div class="info">Submitting…</div>`;
@@ -165,6 +311,7 @@
     const data = Object.fromEntries(new FormData(form).entries());
     data.phone = data.phone ? data.phone.replace(/\s+/g,'') : '';
 
+    // If lnp selected, ensure feName is included (some clients may ignore readonly fields, but FormData picks them)
     try {
       const res = await fetch(POST_URL, {
         method: 'POST',
@@ -177,6 +324,7 @@
       if (j && j.status === 'success') {
         msg.innerHTML = '<div class="success">Saved ✓ — Next record ready.</div>';
         form.reset();
+        feInput.value = '';
         return;
       } else {
         // Server returned something else: fallback
@@ -193,6 +341,7 @@
       form.submit(); // will POST to Apps Script via hidden iframe
       msg.innerHTML = `<div class="success">Submitted (via form). ${note} If you do not see the row in Google Sheets in a few seconds, inform admin.</div>`;
       form.reset();
+      feInput.value = '';
     } catch (e) {
       msg.innerHTML = '<div class="error">Unable to submit: ' + e.toString() + '</div>';
     }
