@@ -12,6 +12,10 @@
   button{margin-top:14px;padding:12px 16px;font-weight:700}
   .row { display:flex; gap:8px; flex-wrap:wrap; }
   .col2 { flex:1; min-width:150px; }
+  .small { width:140px; }
+  .success{background:#e6ffed;border-left:4px solid #2aa44f;padding:10px;margin-top:12px}
+  .error{background:#ffe6e6;border-left:4px solid #d33;padding:10px;margin-top:12px}
+  .info{background:#eef6ff;border-left:4px solid #2b7cff;padding:10px;margin-top:12px}
   .muted { font-weight:400; font-size:0.9rem; color:#555; margin-top:6px; }
   .inline { display:flex; gap:8px; }
   .inline > * { flex:1; }
@@ -19,16 +23,14 @@
     .inline { flex-direction:column; }
     input, select, textarea, button { font-size:16px; }
   }
+  /* make LNP list scroll nicely */
   #lnpName { height: 220px; overflow:auto; }
-  .success{background:#e6ffed;border-left:4px solid #2aa44f;padding:10px;margin-top:12px}
-  .error{background:#ffe6e6;border-left:4px solid #d33;padding:10px;margin-top:12px}
-  .info{background:#eef6ff;border-left:4px solid #2b7cff;padding:10px;margin-top:12px}
 </style>
 </head>
 <body>
   <h1>KFON — Customer Interest Form</h1>
 
-  <!-- hidden iframe fallback -->
+  <!-- Hidden iframe fallback target -->
   <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
 
   <form id="interestForm" method="post"
@@ -63,16 +65,16 @@
 
     <label>If yes which ISP<input name="whichIsp" placeholder="e.g. Airtel / Jio / Local ISP"></label>
 
-    <!-- Search + Partner ID + LNP (display partner : company) + FE -->
+    <!-- Search + Partner ID + LNP Name + Automatic FE Name -->
     <div class="row">
       <div class="col2">
         <label>Search LNP / Company or Partner ID
-          <input type="search" id="lnpSearch" placeholder="Type company or partner id to filter">
+          <input type="search" id="lnpSearch" placeholder="Type company name or partner id to filter">
         </label>
       </div>
 
       <div class="col2">
-        <label>Partner ID (auto-filled when selecting company)
+        <label>Partner ID (will auto-fill when you select a company)
           <input name="partnerId" id="partnerId" placeholder="e.g. 5001036760">
         </label>
       </div>
@@ -80,10 +82,10 @@
 
     <div class="row inline">
       <div class="col2">
-        <label>LNP (PartnerID : Company) — tap to select
-          <select name="lnpName" id="lnpName" size="8"></select>
+        <label>LNP Name (Local Cable Operator) — tap to select
+          <select name="lnpName" id="lnpName" size="8" style="height:auto;"></select>
         </label>
-        <div class="muted">Tip: search above then tap company. The list shows "PartnerID : Company Name".</div>
+        <div class="muted">Tip: use the search above, then tap/select an item. List shows "Company — [Partner ID]".</div>
       </div>
 
       <div class="col2">
@@ -91,10 +93,12 @@
           <input name="feName" id="feName" readonly placeholder="FE will appear here">
         </label>
 
-        <div style="display:flex;gap:8px;margin-top:12px">
+        <label style="margin-top:12px;">Quick actions</label>
+        <div style="display:flex;gap:8px">
           <button type="button" id="findByPartner" style="flex:1">Find by Partner ID</button>
           <button type="button" id="clearFilter" style="flex:1">Clear</button>
         </div>
+
       </div>
     </div>
 
@@ -119,209 +123,324 @@
   <div id="msg"></div>
 
 <script>
-/* ---------- config ---------- */
-const POST_URL = 'https://script.google.com/macros/s/AKfycbxhOKkaGaLJfjVU72gX1Px7VWoC0D1Ub5AI1IMWXkZTQzkTa92DaR0UkbQ4JE3NqRfj/exec';
-/* --------------------------- */
+  // ---- Config ----
+  const POST_URL = 'https://script.google.com/macros/s/AKfycbxhOKkaGaLJfjVU72gX1Px7VWoC0D1Ub5AI1IMWXkZTQzkTa92DaR0UkbQ4JE3NqRfj/exec';
+  // ----------------
 
-/* states + districts (Kerala full, add more as needed) */
-const states = [
-  "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa",
-  "Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
-  "Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
-  "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
-  "Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands",
-  "Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir",
-  "Ladakh","Lakshadweep","Puducherry"
-];
-const districts = {
-  "Kerala": [
-    "Thiruvananthapuram","Kollam","Pathanamthitta","Alappuzha","Kottayam",
-    "Idukki","Ernakulam","Thrissur","Palakkad","Malappuram","Kozhikode",
-    "Wayanad","Kannur","Kasaragod"
-  ]
-};
+  // Indian States (full list)
+  const states = [
+    "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa",
+    "Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
+    "Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
+    "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
+    "Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands",
+    "Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir",
+    "Ladakh","Lakshadweep","Puducherry"
+  ];
 
-/* LNP entries (partner : company) -> fe name
-   (You already provided many. Keep/edit here as needed.)
-*/
-const lnpEntries = [
-  { partner: "5001036760", company: "METRO CABLE VISION", fe: "RAJATH KRISHNA" },
-  { partner: "2604810007", company: "RIZA ELECTRONICS AND CABLES TV", fe: "" },
-  { partner: "2169274433", company: "METRO DIGITAL VISION", fe: "RAJATH KRISHNA" },
-  { partner: "7417013662", company: "VEGA VISION", fe: "ABHIJITH VR" },
-  { partner: "7419746167", company: "CHANNEL TRACK CABLE NETWORK", fe: "ABHIJITH VR" },
-  { partner: "2522821809", company: "NEWSTAR CABLE TV NETWORK", fe: "ASWIN MOHAN" },
-  { partner: "7019695404", company: "JEEVAN CABLE NETWORK", fe: "" },
-  { partner: "1777735887", company: "NEW CABLE VISION", fe: "ABHIJITH VR" },
-  { partner: "3934588600", company: "MEDIA VISION DIGITAL NETWORK", fe: "ABHIJITH VR" },
-  { partner: "5842983774", company: "SPACE CABLE NETWORK", fe: "ASWIN MOHAN" },
-  /* ... add rest of the list here (I included many previously). Continue adding objects for all companies ... */
-  { partner: "2443320165", company: "CHAITHANYA CABLE NETWORK", fe: "" },
-  { partner: "2624853239", company: "B4U CABLE NETWORK", fe: "" }
-];
+  // Districts mapping (Kerala full, plus useful sets for some other states)
+  const districts = {
+    "Kerala": [
+      "Thiruvananthapuram","Kollam","Pathanamthitta","Alappuzha","Kottayam",
+      "Idukki","Ernakulam","Thrissur","Palakkad","Malappuram","Kozhikode",
+      "Wayanad","Kannur","Kasaragod"
+    ],
+    "Karnataka": [
+      "Bagalkot","Ballari","Belagavi","Bengaluru Urban","Bengaluru Rural",
+      "Bidar","Chamarajanagar","Chikkamagaluru","Chitradurga","Dakshina Kannada",
+      "Davanagere","Dharwad","Gadag","Hassan","Haveri","Kalaburagi","Kodagu",
+      "Kolar","Koppal","Mandya","Mysuru","Raichur","Ramanagara","Shivamogga",
+      "Tumakuru","Udupi","Uttara Kannada","Vijayapura","Yadgir"
+    ],
+    "Tamil Nadu": [
+      "Ariyalur","Chennai","Coimbatore","Cuddalore","Dharmapuri","Dindigul",
+      "Erode","Kanchipuram","Kanyakumari","Karur","Krishnagiri","Madurai",
+      "Nagapattinam","Namakkal","Perambalur","Pudukkottai","Ramanathapuram",
+      "Salem","Sivaganga","Thanjavur","Theni","Thiruvallur","Thiruvarur",
+      "Thoothukudi","Tiruchirappalli","Tirunelveli","Tiruppur","Tiruvannamalai",
+      "Vellore","Villupuram","Virudhunagar"
+    ]
+  };
 
-/* ---------- build UI ---------- */
-const stateSelect = document.getElementById('state');
-const districtSelect = document.getElementById('district');
-const lnpSelect = document.getElementById('lnpName');
-const lnpSearch = document.getElementById('lnpSearch');
-const partnerInput = document.getElementById('partnerId');
-const feInput = document.getElementById('feName');
+  // LNP mapping: company -> {fe, partner}
+  const lnpMapping = {
+    "METRO CABLE VISION - 50010367560": { fe: "RAJATH KRISHNA"},
+    "RIZA ELECTRONICS AND CABLES TV - 2604810007": { fe: ""},
+    "METRO DIGITAL VISION - 2169274433": { fe: "RAJATH KRISHNA"},
+    "VEGA VISION - 7417013662": { fe: "ABHIJITH VR"},
+    "CHANNEL TRACK CABLE NETWORK - 7419746167": { fe: "ABHIJITH VR"},
+    "NEWSTAR CABLE TV NETWORK - 2522821809": { fe: "ASWIN MOHAN"},
+    "JEEVAN CABLE NETWORK - 7019695404": { fe: ""},
+    "NEW CABLE VISION - 1777735887": { fe: "ABHIJITH VR"},
+    "MEDIA VISION DIGITAL NETWORK": { fe: "ABHIJITH VR", partner: "3934588600" },
+    "SPACE CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "5842983774" },
+    "THASNI VISION CABLE TV NETWORK": { fe: "ASWIN MOHAN", partner: "8226811751" },
+    "CITY STAR CABLE TV NETWORK": { fe: "ABHIJITH VR", partner: "7075888442" },
+    "AKASH CABLE VISION": { fe: "ASWIN MOHAN", partner: "6847094723" },
+    "HI- TECH CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "3418932986" },
+    "AISWARYA TV SERVICE": { fe: "ABHIJITH VR", partner: "5029993910" },
+    "MAX VISION CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "7930256421" },
+    "STAR VISION CABLE NETWORK": { fe: "ABHIJITH VR", partner: "7188471431" },
+    "FAST AND FRIENDLY CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "4098585581" },
+    "AMRUTHA CABLE TV": { fe: "ABHIJITH VR", partner: "4399371949" },
+    "ROYAL CABLE NETWORK": { fe: "ABHIJITH VR", partner: "5825826263" },
+    "K LINK NETWORK": { fe: "ABHIJITH VR", partner: "5198157240" },
+    "GLOBAL VISION CABLE TV": { fe: "ASWIN MOHAN", partner: "1955796918" },
+    "PLESENT CABLE TV NETWORK": { fe: "RAJATH KRISHNA", partner: "3284259902" },
+    "KUPPADI CABLE NETWORK": { fe: "BIJU M T", partner: "7507664590" },
+    "JJ VISION": { fe: "ABHIJITH VR", partner: "6249756390" },
+    "EYE VISION CABLE TV NETWORK": { fe: "ABHIJITH VR", partner: "8144437770" },
+    "VADAKKANAD CABLE VISION": { fe: "BIJU M T", partner: "5732233896" },
+    "H I VISION": { fe: "ABHIJITH VR", partner: "3966125242" },
+    "TELLSMART TECH": { fe: "ASWIN MOHAN", partner: "4522766339" },
+    "V SAT CABLE VISION": { fe: "ASWIN MOHAN", partner: "3362417016" },
+    "UDAYAM CABLE TV NETWORK": { fe: "RAJATH KRISHNA", partner: "4583380925" },
+    "CABLE VISION CABLE TV": { fe: "RAJATH KRISHNA", partner: "5605656351" },
+    "NADAVAYAL CABLE VISION": { fe: "RAJATH KRISHNA", partner: "3650127366" },
+    "STAR CABLE NETWORK": { fe: "RAJATH KRISHNA", partner: "1869266368" },
+    "DRISHYAM CABLE TV": { fe: "ASWIN MOHAN", partner: "1805051882" },
+    "NAVITHA CABLE NETWORK": { fe: "RAJATH KRISHNA", partner: "2267857851" },
+    "SREE VISION CABLE TV NETWORK": { fe: "ASWIN MOHAN", partner: "6472789716" },
+    "DARSANA COMMUNICATIONS": { fe: "BIJU M T", partner: "6292548824" },
+    "VISMAYA CABLE TV  NETWORK": { fe: "ASWIN MOHAN", partner: "4599595707" },
+    "POWER WAY CABLE TV NETWORK": { fe: "ABHIJITH VR", partner: "6746633411" },
+    "SPEEDON CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "1546039037" },
+    "DREAM CABLE VISION": { fe: "ABHIJITH VR", partner: "8271540273" },
+    "DIGITAL SYSTEMS": { fe: "RAJATH KRISHNA", partner: "8710059631" },
+    "DRISHYA CABLE TV": { fe: "BIJU M T", partner: "8335880182" },
+    "ZEE TECH CABLE": { fe: "BIJU M T", partner: "2714237885" },
+    "NEW STAR CABLE VISION": { fe: "ASWIN MOHAN", partner: "4619837109" },
+    "DIGITAL VISION CABLE TV": { fe: "ASWIN MOHAN", partner: "2408298970" },
+    "RINEESH CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "5107540560" },
+    "TIME VISION": { fe: "ABHIJITH VR", partner: "7080667697" },
+    "BS CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "4334787868" },
+    "MALANAD VISION CABLE TV NETWORK": { fe: "RAJATH KRISHNA", partner: "4355079001" },
+    "CITY CABLE NETWORK": { fe: "ABHIJITH VR", partner: "5882925683" },
+    "DIGITAL CABLE AND INTERNET SERVICES": { fe: "ASWIN MOHAN", partner: "1266336598" },
+    "BEST VISION CABLE  NETWORK": { fe: "BIJU M T", partner: "5538036286" },
+    "NEW MAX CABLE NETWORK": { fe: "ABHIJITH VR", partner: "4994357356" },
+    "TRUE VISION CABLE TV": { fe: "ABHIJITH VR", partner: "5327153118" },
+    "SKY CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "5387680708" },
+    "CHANNEL SYSTEM": { fe: "ABHIJITH VR", partner: "6769511477" },
+    "WINNER SAT CABLE TV NETWORK": { fe: "ASWIN MOHAN", partner: "8484986628" },
+    "STAR VISION CABLE NETWORK (ASWIN)": { fe: "ASWIN MOHAN", partner: "3378092537" },
+    "STAR CABLE NETWORK (BIJU)": { fe: "BIJU M T", partner: "1240091206" },
+    "VISION TECH CABLE NETWORK": { fe: "BIJU M T", partner: "8012247486" },
+    "NELLIKANATHIL CABLE VISION": { fe: "ABHIJITH VR", partner: "4155455227" },
+    "C H CABLE NETWORK": { fe: "BIJU M T", partner: "6386210325" },
+    "STAR VISION": { fe: "ABHIJITH VR", partner: "2281339193" },
+    "MAX CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "8687937156" },
+    "STARPLUS CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "5761449574" },
+    "SD VISION CABLE NETWORK": { fe: "ABHIJITH VR", partner: "8737798258" },
+    "SKY NET CABLE TV NETWORK": { fe: "RAJATH KRISHNA", partner: "6898657493" },
+    "N J VISION": { fe: "ABHIJITH VR", partner: "5564930892" },
+    "S4 VISION CABLE NETWORK": { fe: "ABHIJITH VR", partner: "7135567295" },
+    "NEW STAR CABLE TV": { fe: "ABHIJITH VR", partner: "2930417159" },
+    "UNITED CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "8020481065" },
+    "DIGIMAX DIGITAL NETWORK": { fe: "ASWIN MOHAN", partner: "7027446616" },
+    "DIGI MAX DIGITAL CABLE NETWORK (1)": { fe: "ABHIJITH VR", partner: "3521765034" },
+    "DIGI MAX DIGITAL CABLE NETWORK (2)": { fe: "ABHIJITH VR", partner: "6807887400" },
+    "SYMPHONY CABLE NETWORK": { fe: "ABHIJITH VR", partner: "3126287351" },
+    "TECHNO VISION CABLE NETWORK": { fe: "BIJU M T", partner: "7198948911" },
+    "SILVER STAR CABLE VISION": { fe: "BIJU M T", partner: "2885410400" },
+    "SAT VISION CABLE NETWORK": { fe: "BIJU M T", partner: "7452142087" },
+    "JYOTHI CABLE NETWORK": { fe: "ABHIJITH VR", partner: "6473169138" },
+    "SRUTHI CABLE VISION": { fe: "ASWIN MOHAN", partner: "6388041993" },
+    "NEW WORLD CABLE": { fe: "RAJATH KRISHNA", partner: "1620897080" },
+    "SAT LINK CABLE TV NETWORK": { fe: "RAJATH KRISHNA", partner: "8518538181" },
+    "MIDHUN CABLE NETWORK": { fe: "RAJATH KRISHNA", partner: "7399099105" },
+    "OLEEVIA CABLE NETWORK": { fe: "RAJATH KRISHNA", partner: "3045016413" },
+    "OLEEVIA PKR CABLE NETWORK": { fe: "RAJATH KRISHNA", partner: "5684018695" },
+    "CITIZEN CABLE NETWORK": { fe: "RAJATH KRISHNA", partner: "2205936521" },
+    "SURYA SYSTEMS CABLE TV NETWORK": { fe: "ABHIJITH VR", partner: "3789633541" },
+    "SURYA CABLE TV NETWORK": { fe: "ABHIJITH VR", partner: "1193352374" },
+    "DAY STAR CABLE NETWORK": { fe: "RAJATH KRISHNA", partner: "3123834550" },
+    "STAR TECH CABLE VISION": { fe: "ASWIN MOHAN", partner: "1966980423" },
+    "PUTHIYADAM CABLE NETWORK": { fe: "ABHIJITH VR", partner: "3073584709" },
+    "NKT CABLE NETWORK": { fe: "BIJU M T", partner: "4631433503" },
+    "GRAND MEDIA CABLE TV NETWORK": { fe: "RAJATH KRISHNA", partner: "7343853869" },
+    "SUN CABLE NETWORK": { fe: "BIJU M T", partner: "6558326971" },
+    "WORLD VISION CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "6242362728" },
+    "TECHNO CABLES": { fe: "BIJU M T", partner: "5924422840" },
+    "NOVELTY VISION": { fe: "RAJATH KRISHNA", partner: "7809311590" },
+    "METRO CABLE VISION (2)": { fe: "RAJATH KRISHNA", partner: "5631892585" },
+    "MCN CABLE NETWORK (1)": { fe: "BIJU M T", partner: "4783024539" },
+    "MCN CABLE NETWORK (2)": { fe: "BIJU M T", partner: "5620939556" },
+    "MANIKUNI STATE CABLE TV NETWORK": { fe: "BIJU M T", partner: "5572650949" },
+    "ASIATECHCABLE NETWORK": { fe: "BIJU M T", partner: "5971918136" },
+    "ASIATECH CABLE TV": { fe: "BIJU M T", partner: "2364523348" },
+    "EBENEZER CABLE NETWORK": { fe: "BIJU M T", partner: "7449360890" },
+    "MANICHIRA CABLE TV NETWORK": { fe: "BIJU M T", partner: "8207095621" },
+    "SRUTHI CABLE NETWORK": { fe: "BIJU M T", partner: "4845424587" },
+    "GLOBAL VISION CABLE NETWORK (2)": { fe: "ASWIN MOHAN", partner: "7544690395" },
+    "EURO CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "5562547037" },
+    "SPACE CABLE TV NETWORK": { fe: "ASWIN MOHAN", partner: "5437819887" },
+    "BRIGHT CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "4990828743" },
+    "STAR VIEW CABLE": { fe: "BIJU M T", partner: "4479330979" },
+    "SKYLINE CABLE TV": { fe: "RAJATH KRISHNA", partner: "2697739883" },
+    "TRUE ONE CABLE TV NETWORK": { fe: "BIJU M T", partner: "5821943552" },
+    "GALAXY CABLE NETWORK": { fe: "BIJU M T", partner: "3332817211" },
+    "IDEAL CABLE NETWORK": { fe: "ASWIN MOHAN", partner: "7306661422" },
+    "SAT LAND CABLE TV NETWORK": { fe: "ASWIN MOHAN", partner: "1631552130" },
+    "New asian cable network": { fe: "ASWIN MOHAN", partner: "6286518129" },
+    "EYETECH CABLE TV NETWORK": { fe: "RAJATH KRISHNA", partner: "4842513993" },
+    "AMMA CABLE TV NETWORK": { fe: "ABHIJITH VR", partner: "6700414024" },
+    "CHAITHANYA CABLE NETWORK": { fe: "", partner: "2443320165" },
+    "B4U CABLE NETWORK": { fe: "" , partner: "2624853239" }
+  };
 
-function populateStates(){
-  stateSelect.innerHTML = '<option value="">Select State</option>';
-  states.forEach(s => stateSelect.innerHTML += `<option value="${s}">${s}</option>`);
-}
-populateStates();
-
-stateSelect.addEventListener('change', () => {
-  const s = stateSelect.value;
-  districtSelect.innerHTML = '';
-  if (!s) return districtSelect.innerHTML = '<option value="">Select district</option>';
-  if (districts[s]) {
-    districtSelect.innerHTML = '<option value="">Select district</option>';
-    districts[s].forEach(d => districtSelect.innerHTML += `<option value="${d}">${d}</option>`);
-  } else {
-    districtSelect.innerHTML = '<option value="">No districts available</option>';
-  }
-});
-
-/* Build LNP options (shows "partner : company") */
-function buildLnp(filter = '') {
-  lnpSelect.innerHTML = '';
-  const f = (filter || '').toString().trim().toLowerCase();
-  const matched = lnpEntries.filter(e => {
-    return !f || e.company.toLowerCase().includes(f) || e.partner.includes(f);
+  // ---------- build LNP list with partner ids ----------
+  const lnpSelect = document.getElementById('lnpName');
+  const lnpEntries = Object.keys(lnpMapping).sort().map(name => {
+    const obj = lnpMapping[name];
+    return { name, fe: obj.fe || '', partner: (obj.partner || '').toString() };
   });
-  if (matched.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = 'No companies found';
-    lnpSelect.appendChild(opt);
-    return;
+
+  function buildLnpOptions(filter = '') {
+    lnpSelect.innerHTML = '';
+    const f = filter.trim().toLowerCase();
+    lnpEntries.forEach(entry => {
+      // match by name or partner id
+      if (!f || entry.name.toLowerCase().includes(f) || (entry.partner && entry.partner.includes(f))) {
+        const opt = document.createElement('option');
+        opt.value = entry.name;
+        // show "Company — [PartnerID]" if partner exists
+        opt.textContent = entry.partner ? `${entry.name} — [${entry.partner}]` : entry.name;
+        opt.dataset.fe = entry.fe;
+        opt.dataset.partner = entry.partner;
+        lnpSelect.appendChild(opt);
+      }
+    });
+    // if nothing matched, show helpful message
+    if (lnpSelect.options.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No companies found';
+      lnpSelect.appendChild(opt);
+    }
   }
-  matched.forEach(e => {
-    const opt = document.createElement('option');
-    opt.value = `${e.partner} : ${e.company}`; // value as "partner : company"
-    opt.textContent = `${e.partner} : ${e.company}`;
-    opt.dataset.partner = e.partner;
-    opt.dataset.company = e.company;
-    opt.dataset.fe = e.fe || '';
-    lnpSelect.appendChild(opt);
+
+  // initial populate
+  buildLnpOptions('');
+
+  // wire search input to filter list
+  const lnpSearch = document.getElementById('lnpSearch');
+  lnpSearch.addEventListener('input', () => {
+    buildLnpOptions(lnpSearch.value);
+    // keep partnerId & feName cleared until user selects
+    document.getElementById('partnerId').value = '';
+    document.getElementById('feName').value = '';
   });
-}
-buildLnp();
 
-/* search filter */
-lnpSearch.addEventListener('input', () => {
-  buildLnp(lnpSearch.value);
-  partnerInput.value = '';
-  feInput.value = '';
-});
+  // when an LNP is selected, autofill FE and partnerId
+  lnpSelect.addEventListener('change', () => {
+    const opt = lnpSelect.options[lnpSelect.selectedIndex];
+    if (!opt) return;
+    const partner = opt.dataset.partner || '';
+    const fe = opt.dataset.fe || '';
+    document.getElementById('partnerId').value = partner;
+    document.getElementById('feName').value = fe;
+  });
 
-/* when user selects from list, set partner, FE, company */
-lnpSelect.addEventListener('change', () => {
-  const opt = lnpSelect.options[lnpSelect.selectedIndex];
-  if (!opt) return;
-  partnerInput.value = opt.dataset.partner || '';
-  feInput.value = opt.dataset.fe || '';
-  // also set the lnpName value to company only (Apps Script gets lnpName param)
-  // HTML select's value is "partner : company" – it's okay, we'll parse in Apps Script.
-});
-
-/* find by partner button */
-document.getElementById('findByPartner').addEventListener('click', () => {
-  const pid = partnerInput.value.trim();
-  if (!pid) return alert('Paste or type Partner ID into the Partner ID box first.');
-  // find exact match
-  const idx = lnpEntries.findIndex(e => e.partner === pid);
-  if (idx >= 0) {
-    buildLnp(''); // refresh list
-    // find option index
-    for (let i=0;i<lnpSelect.options.length;i++){
-      if (lnpSelect.options[i].dataset.partner === pid){
-        lnpSelect.selectedIndex = i;
-        lnpSelect.dispatchEvent(new Event('change'));
-        lnpSelect.scrollTo(0, lnpSelect.options[i].offsetTop);
-        return;
+  // findByPartner button: pick partnerId and select matching company
+  document.getElementById('findByPartner').addEventListener('click', () => {
+    const pid = document.getElementById('partnerId').value.trim();
+    if (!pid) { alert('Paste or type Partner ID in the Partner ID field first.'); return; }
+    // search for exact match in the whole mapping
+    const match = lnpEntries.find(e => e.partner === pid);
+    if (match) {
+      // rebuild list with match first and select it
+      buildLnpOptions('');
+      // find option and select
+      for (let i = 0; i < lnpSelect.options.length; i++) {
+        if ((lnpSelect.options[i].dataset.partner || '') === pid) {
+          lnpSelect.selectedIndex = i;
+          lnpSelect.dispatchEvent(new Event('change'));
+          lnpSelect.scrollTo(0, lnpSelect.options[i].offsetTop);
+          return;
+        }
       }
     }
-  }
-  // fallback: filter list by pid text
-  buildLnp(pid);
-  if (lnpSelect.options.length > 0 && lnpSelect.options[0].value) {
-    lnpSelect.selectedIndex = 0;
-    lnpSelect.dispatchEvent(new Event('change'));
-  } else {
-    alert('No matching company found for Partner ID: ' + pid);
-  }
-});
-
-/* clear filter */
-document.getElementById('clearFilter').addEventListener('click', () => {
-  lnpSearch.value = '';
-  partnerInput.value = '';
-  feInput.value = '';
-  buildLnp('');
-});
-
-/* ---------- form submit (JSON fetch with iframe fallback) ---------- */
-const form = document.getElementById('interestForm');
-const msg = document.getElementById('msg');
-
-form.addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  msg.innerHTML = '<div class="info">Submitting…</div>';
-
-  // collect form data
-  const data = Object.fromEntries(new FormData(form).entries());
-
-  // if LNP selected as "partner : company", ensure we split for clarity
-  if (data.lnpName && data.lnpName.includes(':')) {
-    const parts = data.lnpName.split(':');
-    data.partnerId = (parts[0] || '').trim();
-    data.lnpName = (parts.slice(1).join(':') || '').trim();
-  } else {
-    // if user typed partnerId but didn't select, keep partnerId field
-    data.partnerId = data.partnerId || '';
-  }
-
-  // ensure feName present (from selection)
-  data.feName = data.feName || '';
-
-  // sanitize phone
-  data.phone = data.phone ? data.phone.replace(/\s+/g,'') : '';
-
-  try {
-    const res = await fetch(POST_URL, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(data)
-    });
-    const j = await res.json();
-    if (j && j.status === 'success') {
-      msg.innerHTML = '<div class="success">Saved ✓ — Next record ready.</div>';
-      form.reset();
-      buildLnp('');
-      return;
+    // fallback text search
+    buildLnpOptions(pid);
+    // if first option matches, select it
+    if (lnpSelect.options.length > 0 && lnpSelect.options[0].value !== '') {
+      lnpSelect.selectedIndex = 0;
+      lnpSelect.dispatchEvent(new Event('change'));
     } else {
-      fallbackSubmit('Server returned error — using fallback submit.');
+      alert('No matching company found for Partner ID: ' + pid);
     }
-  } catch (err) {
-    fallbackSubmit('Network/CORS — using fallback submit.');
-  }
-});
+  });
 
-function fallbackSubmit(note = '') {
-  try {
-    form.submit();
-    msg.innerHTML = `<div class="success">Submitted (via form). ${note}</div>`;
-    form.reset();
-    buildLnp('');
-  } catch (e) {
-    msg.innerHTML = '<div class="error">Unable to submit: ' + e.toString() + '</div>';
+  // clear filter button
+  document.getElementById('clearFilter').addEventListener('click', () => {
+    lnpSearch.value = '';
+    buildLnpOptions('');
+    document.getElementById('partnerId').value = '';
+    document.getElementById('feName').value = '';
+  });
+
+  // Populate state & district dropdowns (same as earlier)
+  const stateSelect = document.getElementById("state");
+  const districtSelect = document.getElementById("district");
+  stateSelect.innerHTML = `<option value="">Select State</option>`;
+  states.forEach(s => stateSelect.innerHTML += `<option value="${s}">${s}</option>`);
+  stateSelect.addEventListener('change', () => {
+    const s = stateSelect.value;
+    districtSelect.innerHTML = '';
+    if (!s) {
+      districtSelect.innerHTML = `<option value="">Select district</option>`;
+      return;
+    }
+    if (districts[s]) {
+      districtSelect.innerHTML = `<option value="">Select district</option>`;
+      districts[s].forEach(d => districtSelect.innerHTML += `<option value="${d}">${d}</option>`);
+    } else {
+      districtSelect.innerHTML = `<option value="">No districts available</option>`;
+    }
+  });
+
+  // Form submit: try JSON fetch first, fallback to regular form post (iframe)
+  const form = document.getElementById('interestForm');
+  const msg = document.getElementById('msg');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    msg.innerHTML = `<div class="info">Submitting…</div>`;
+
+    const data = Object.fromEntries(new FormData(form).entries());
+    data.phone = data.phone ? data.phone.replace(/\s+/g,'') : '';
+
+    try {
+      const res = await fetch(POST_URL, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(data),
+      });
+      const j = await res.json();
+      if (j && j.status === 'success') {
+        msg.innerHTML = '<div class="success">Saved ✓ — Next record ready.</div>';
+        form.reset();
+        buildLnpOptions(''); // refresh list
+        return;
+      } else {
+        fallbackSubmit('Server returned error — using fallback submit.');
+      }
+    } catch (err) {
+      fallbackSubmit('Network/CORS — using fallback submit.');
+    }
+  });
+
+  function fallbackSubmit(note = '') {
+    try {
+      form.submit(); // will POST to Apps Script via hidden iframe
+      msg.innerHTML = `<div class="success">Submitted (via form). ${note} If you do not see the row in Google Sheets in a few seconds, inform admin.</div>`;
+      form.reset();
+      buildLnpOptions('');
+    } catch (e) {
+      msg.innerHTML = '<div class="error">Unable to submit: ' + e.toString() + '</div>';
+    }
   }
-}
 </script>
 </body>
 </html>
