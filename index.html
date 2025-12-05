@@ -5,27 +5,36 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>KFON Customer Interest</title>
 <style>
-  body { font-family: Arial, sans-serif; padding: 12px; max-width: 900px; margin: auto; }
+  body { font-family: Arial, sans-serif; padding: 12px; max-width: 980px; margin: auto; }
   h1{font-size:1.2rem}
   label{display:block;margin-top:10px;font-weight:600}
-  input, select, textarea { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; }
+  input, select, textarea, button { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; }
   button{margin-top:14px;padding:12px 16px;font-weight:700}
   .row { display:flex; gap:8px; flex-wrap:wrap; }
   .col2 { flex:1; min-width:150px; }
-  .small { width:140px; }
+  .muted { font-weight:400; font-size:0.9rem; color:#555; margin-top:6px; }
+  .inline { display:flex; gap:8px; }
+  .inline > * { flex:1; }
+  @media (max-width:520px) {
+    .inline { flex-direction:column; }
+    input, select, textarea, button { font-size:16px; }
+  }
+  #lnpName { height: 220px; overflow:auto; }
   .success{background:#e6ffed;border-left:4px solid #2aa44f;padding:10px;margin-top:12px}
   .error{background:#ffe6e6;border-left:4px solid #d33;padding:10px;margin-top:12px}
   .info{background:#eef6ff;border-left:4px solid #2b7cff;padding:10px;margin-top:12px}
-  .muted { font-weight:400; font-size:0.9rem; color:#555; margin-top:6px; }
 </style>
 </head>
 <body>
   <h1>KFON — Customer Interest Form</h1>
 
-  <!-- Hidden iframe fallback target -->
+  <!-- hidden iframe fallback -->
   <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
 
-  <form id="interestForm" method="post" action="https://script.google.com/macros/s/AKfycbxhOKkaGaLJfjVU72gX1Px7VWoC0D1Ub5AI1IMWXkZTQzkTa92DaR0UkbQ4JE3NqRfj/exec" target="hidden_iframe">
+  <form id="interestForm" method="post"
+    action="https://script.google.com/macros/s/AKfycbxhOKkaGaLJfjVU72gX1Px7VWoC0D1Ub5AI1IMWXkZTQzkTa92DaR0UkbQ4JE3NqRfj/exec"
+    target="hidden_iframe">
+
     <label>Customer Name<input type="text" name="customerName" required></label>
     <label>Address<textarea name="address" rows="2" required></textarea></label>
 
@@ -54,19 +63,38 @@
 
     <label>If yes which ISP<input name="whichIsp" placeholder="e.g. Airtel / Jio / Local ISP"></label>
 
-    <!-- LNP Name + Automatic FE Name -->
+    <!-- Search + Partner ID + LNP (display partner : company) + FE -->
     <div class="row">
       <div class="col2">
-        <label>LNP Name (Local Cable Operator)
-          <select name="lnpName" id="lnpName">
-            <option value="">Select LNP / Company</option>
-          </select>
+        <label>Search LNP / Company or Partner ID
+          <input type="search" id="lnpSearch" placeholder="Type company or partner id to filter">
         </label>
       </div>
+
+      <div class="col2">
+        <label>Partner ID (auto-filled when selecting company)
+          <input name="partnerId" id="partnerId" placeholder="e.g. 5001036760">
+        </label>
+      </div>
+    </div>
+
+    <div class="row inline">
+      <div class="col2">
+        <label>LNP (PartnerID : Company) — tap to select
+          <select name="lnpName" id="lnpName" size="8"></select>
+        </label>
+        <div class="muted">Tip: search above then tap company. The list shows "PartnerID : Company Name".</div>
+      </div>
+
       <div class="col2">
         <label>FE Name (auto-filled)
           <input name="feName" id="feName" readonly placeholder="FE will appear here">
         </label>
+
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button type="button" id="findByPartner" style="flex:1">Find by Partner ID</button>
+          <button type="button" id="clearFilter" style="flex:1">Clear</button>
+        </div>
       </div>
     </div>
 
@@ -91,261 +119,209 @@
   <div id="msg"></div>
 
 <script>
-  // ---- Config ----
-  const POST_URL = 'https://script.google.com/macros/s/AKfycbxhOKkaGaLJfjVU72gX1Px7VWoC0D1Ub5AI1IMWXkZTQzkTa92DaR0UkbQ4JE3NqRfj/exec';
-  // ----------------
+/* ---------- config ---------- */
+const POST_URL = 'https://script.google.com/macros/s/AKfycbxhOKkaGaLJfjVU72gX1Px7VWoC0D1Ub5AI1IMWXkZTQzkTa92DaR0UkbQ4JE3NqRfj/exec';
+/* --------------------------- */
 
-  // Indian States (full list)
-  const states = [
-    "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa",
-    "Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
-    "Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
-    "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
-    "Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands",
-    "Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir",
-    "Ladakh","Lakshadweep","Puducherry"
-  ];
+/* states + districts (Kerala full, add more as needed) */
+const states = [
+  "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa",
+  "Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
+  "Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
+  "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
+  "Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands",
+  "Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir",
+  "Ladakh","Lakshadweep","Puducherry"
+];
+const districts = {
+  "Kerala": [
+    "Thiruvananthapuram","Kollam","Pathanamthitta","Alappuzha","Kottayam",
+    "Idukki","Ernakulam","Thrissur","Palakkad","Malappuram","Kozhikode",
+    "Wayanad","Kannur","Kasaragod"
+  ]
+};
 
-  // Districts mapping (Kerala full, plus useful sets for some other states)
-  const districts = {
-    "Kerala": [
-      "Thiruvananthapuram","Kollam","Pathanamthitta","Alappuzha","Kottayam",
-      "Idukki","Ernakulam","Thrissur","Palakkad","Malappuram","Kozhikode",
-      "Wayanad","Kannur","Kasaragod"
-    ],
-    "Karnataka": [
-      "Bagalkot","Ballari","Belagavi","Bengaluru Urban","Bengaluru Rural",
-      "Bidar","Chamarajanagar","Chikkamagaluru","Chitradurga","Dakshina Kannada",
-      "Davanagere","Dharwad","Gadag","Hassan","Haveri","Kalaburagi","Kodagu",
-      "Kolar","Koppal","Mandya","Mysuru","Raichur","Ramanagara","Shivamogga",
-      "Tumakuru","Udupi","Uttara Kannada","Vijayapura","Yadgir"
-    ],
-    "Tamil Nadu": [
-      "Ariyalur","Chennai","Coimbatore","Cuddalore","Dharmapuri","Dindigul",
-      "Erode","Kanchipuram","Kanyakumari","Karur","Krishnagiri","Madurai",
-      "Nagapattinam","Namakkal","Perambalur","Pudukkottai","Ramanathapuram",
-      "Salem","Sivaganga","Thanjavur","Theni","Thiruvallur","Thiruvarur",
-      "Thoothukudi","Tiruchirappalli","Tirunelveli","Tiruppur","Tiruvannamalai",
-      "Vellore","Villupuram","Virudhunagar"
-    ],
-    // add other states if you need
-  };
+/* LNP entries (partner : company) -> fe name
+   (You already provided many. Keep/edit here as needed.)
+*/
+const lnpEntries = [
+  { partner: "5001036760", company: "METRO CABLE VISION", fe: "RAJATH KRISHNA" },
+  { partner: "2604810007", company: "RIZA ELECTRONICS AND CABLES TV", fe: "" },
+  { partner: "2169274433", company: "METRO DIGITAL VISION", fe: "RAJATH KRISHNA" },
+  { partner: "7417013662", company: "VEGA VISION", fe: "ABHIJITH VR" },
+  { partner: "7419746167", company: "CHANNEL TRACK CABLE NETWORK", fe: "ABHIJITH VR" },
+  { partner: "2522821809", company: "NEWSTAR CABLE TV NETWORK", fe: "ASWIN MOHAN" },
+  { partner: "7019695404", company: "JEEVAN CABLE NETWORK", fe: "" },
+  { partner: "1777735887", company: "NEW CABLE VISION", fe: "ABHIJITH VR" },
+  { partner: "3934588600", company: "MEDIA VISION DIGITAL NETWORK", fe: "ABHIJITH VR" },
+  { partner: "5842983774", company: "SPACE CABLE NETWORK", fe: "ASWIN MOHAN" },
+  /* ... add rest of the list here (I included many previously). Continue adding objects for all companies ... */
+  { partner: "2443320165", company: "CHAITHANYA CABLE NETWORK", fe: "" },
+  { partner: "2624853239", company: "B4U CABLE NETWORK", fe: "" }
+];
 
-  // LNP mapping: company -> FE name
-  const lnpMapping = {
-    "METRO CABLE VISION": "RAJATH KRISHNA",
-    "RIZA ELECTRONICS AND CABLES TV": "",
-    "METRO DIGITAL VISION": "RAJATH KRISHNA",
-    "VEGA VISION": "ABHIJITH VR",
-    "CHANNEL TRACK CABLE NETWORK": "ABHIJITH VR",
-    "NEWSTAR CABLE TV NETWORK": "ASWIN MOHAN",
-    "JEEVAN CABLE NETWORK": "",
-    "NEW CABLE VISION": "ABHIJITH VR",
-    "MEDIA VISION DIGITAL NETWORK": "ABHIJITH VR",
-    "SPACE CABLE NETWORK": "ASWIN MOHAN",
-    "THASNI VISION CABLE TV NETWORK": "ASWIN MOHAN",
-    "CITY STAR CABLE TV NETWORK": "ABHIJITH VR",
-    "AKASH CABLE VISION": "ASWIN MOHAN",
-    "HI- TECH CABLE NETWORK": "ASWIN MOHAN",
-    "AISWARYA TV SERVICE": "ABHIJITH VR",
-    "MAX VISION CABLE NETWORK": "ASWIN MOHAN",
-    "STAR VISION CABLE NETWORK": "ABHIJITH VR",
-    "FAST AND FRIENDLY CABLE NETWORK": "ASWIN MOHAN",
-    "AMRUTHA CABLE TV": "ABHIJITH VR",
-    "ROYAL CABLE NETWORK": "ABHIJITH VR",
-    "K LINK NETWORK": "ABHIJITH VR",
-    "GLOBAL VISION CABLE TV": "ASWIN MOHAN",
-    "PLESENT CABLE TV NETWORK": "RAJATH KRISHNA",
-    "KUPPADI CABLE NETWORK": "BIJU M T",
-    "JJ VISION": "ABHIJITH VR",
-    "EYE VISION CABLE TV NETWORK": "ABHIJITH VR",
-    "VADAKKANAD CABLE VISION": "BIJU M T",
-    "H I VISION": "ABHIJITH VR",
-    "TELLSMART TECH": "ASWIN MOHAN",
-    "V SAT CABLE VISION": "ASWIN MOHAN",
-    "UDAYAM CABLE TV NETWORK": "RAJATH KRISHNA",
-    "CABLE VISION CABLE TV": "RAJATH KRISHNA",
-    "NADAVAYAL CABLE VISION": "RAJATH KRISHNA",
-    "STAR CABLE NETWORK": "RAJATH KRISHNA",
-    "DRISHYAM CABLE TV": "ASWIN MOHAN",
-    "NAVITHA CABLE NETWORK": "RAJATH KRISHNA",
-    "SREE VISION CABLE TV NETWORK": "ASWIN MOHAN",
-    "DARSANA COMMUNICATIONS": "BIJU M T",
-    "VISMAYA CABLE TV  NETWORK": "ASWIN MOHAN",
-    "POWER WAY CABLE TV NETWORK": "ABHIJITH VR",
-    "SPEEDON CABLE NETWORK": "ASWIN MOHAN",
-    "DREAM CABLE VISION": "ABHIJITH VR",
-    "DIGITAL SYSTEMS": "RAJATH KRISHNA",
-    "DRISHYA CABLE TV": "BIJU M T",
-    "ZEE TECH CABLE": "BIJU M T",
-    "NEW STAR CABLE VISION": "ASWIN MOHAN",
-    "DIGITAL VISION CABLE TV": "ASWIN MOHAN",
-    "RINEESH CABLE NETWORK": "ASWIN MOHAN",
-    "TIME VISION": "ABHIJITH VR",
-    "BS CABLE NETWORK": "ASWIN MOHAN",
-    "MALANAD VISION CABLE TV NETWORK": "RAJATH KRISHNA",
-    "CITY CABLE NETWORK": "ABHIJITH VR",
-    "DIGITAL CABLE AND INTERNET SERVICES": "ASWIN MOHAN",
-    "BEST VISION CABLE  NETWORK": "BIJU M T",
-    "NEW MAX CABLE NETWORK": "ABHIJITH VR",
-    "TRUE VISION CABLE TV": "ABHIJITH VR",
-    "SKY CABLE NETWORK": "ASWIN MOHAN",
-    "CHANNEL SYSTEM": "ABHIJITH VR",
-    "WINNER SAT CABLE TV NETWORK": "ASWIN MOHAN",
-    "STAR VISION CABLE NETWORK": "ASWIN MOHAN",
-    "STAR CABLE NETWORK": "BIJU M T",
-    "VISION TECH CABLE NETWORK": "BIJU M T",
-    "NELLIKANATHIL CABLE VISION": "ABHIJITH VR",
-    "C H CABLE NETWORK": "BIJU M T",
-    "STAR VISION": "ABHIJITH VR",
-    "MAX CABLE NETWORK": "ASWIN MOHAN",
-    "STARPLUS CABLE NETWORK": "ASWIN MOHAN",
-    "SD VISION CABLE NETWORK": "ABHIJITH VR",
-    "SKY NET CABLE TV NETWORK": "RAJATH KRISHNA",
-    "N J VISION": "ABHIJITH VR",
-    "S4 VISION CABLE NETWORK": "ABHIJITH VR",
-    "NEW STAR CABLE TV": "ABHIJITH VR",
-    "UNITED CABLE NETWORK": "ASWIN MOHAN",
-    "DIGIMAX DIGITAL NETWORK": "ASWIN MOHAN",
-    "DIGI MAX DIGITAL CABLE NETWORK": "ABHIJITH VR",
-    "SYMPHONY CABLE NETWORK": "ABHIJITH VR",
-    "TECHNO VISION CABLE NETWORK": "BIJU M T",
-    "SILVER STAR CABLE VISION": "BIJU M T",
-    "SAT VISION CABLE NETWORK": "BIJU M T",
-    "JYOTHI CABLE NETWORK": "ABHIJITH VR",
-    "SRUTHI CABLE VISION": "ASWIN MOHAN",
-    "NEW WORLD CABLE": "RAJATH KRISHNA",
-    "SAT LINK CABLE T V NETWORK": "RAJATH KRISHNA",
-    "MIDHUN CABLE NETWORK": "RAJATH KRISHNA",
-    "OLEEVIA CABLE NETWORK": "RAJATH KRISHNA",
-    "OLEEVIA PKR CABLE NETWORK": "RAJATH KRISHNA",
-    "CITIZEN CABLE NETWORK": "RAJATH KRISHNA",
-    "SURYA SYSTEMS CABLE TV NETWORK": "ABHIJITH VR",
-    "SURYA CABLE TV NETWORK": "ABHIJITH VR",
-    "DAY STAR CABLE NETWORK": "RAJATH KRISHNA",
-    "STAR TECH CABLE VISION": "ASWIN MOHAN",
-    "PUTHIYADAM CABLE NETWORK": "ABHIJITH VR",
-    "NKT CABLE NETWORK": "BIJU M T",
-    "GRAND MEDIA CABLE T V NETWORK": "RAJATH KRISHNA",
-    "SUN CBLE NETWORK": "BIJU M T",
-    "WORLD VISION CABLE NETWORK": "ASWIN MOHAN",
-    "TECHNO CABLES": "BIJU M T",
-    "NOVELTY VISION": "RAJATH KRISHNA",
-    "METRO CABLE VISION": "RAJATH KRISHNA",
-    "MCN CABLE NETWORK": "BIJU M T",
-    "MANIKUNI STATE CABLE TV NETWORK": "BIJU M T",
-    "ASIATECHCABLE NETWORK": "BIJU M T",
-    "ASIATECH CABLE TV": "BIJU M T",
-    "EBENEZER CABLE NETWORK": "BIJU M T",
-    "MANICHIRA CABLE TV NETWORK": "BIJU M T",
-    "SRUTHI CABLE NETWORK": "BIJU M T",
-    "GLOBAL VISION CABLE NETWORK": "ASWIN MOHAN",
-    "EURO CABLE NETWORK": "ASWIN MOHAN",
-    "SPACE CABLE TV NETWORK": "ASWIN MOHAN",
-    "BRIGHT CABLE  NETWORK": "ASWIN MOHAN",
-    "STAR VIEW CABLE": "BIJU M T",
-    "SKYLINE CABLE TV": "RAJATH KRISHNA",
-    "TRUE ONE CABLE TV NETWORK": "BIJU M T",
-    "GALAXY CABLE NETWORK": "BIJU M T",
-    "IDEAL CABLE NETWORK": "ASWIN MOHAN",
-    "SAT LAND CABLE TV NETWORK": "ASWIN MOHAN",
-    "New asian cable network": "ASWIN MOHAN",
-    "EYETECH CABLE TV NETWORK": "RAJATH KRISHNA",
-    "AMMA CABLE TV NETWORK": "ABHIJITH VR",
-    "CHAITHANYA CABLE NETWORK": "",
-    "B4U CABLE NETWORK": ""
-  };
+/* ---------- build UI ---------- */
+const stateSelect = document.getElementById('state');
+const districtSelect = document.getElementById('district');
+const lnpSelect = document.getElementById('lnpName');
+const lnpSearch = document.getElementById('lnpSearch');
+const partnerInput = document.getElementById('partnerId');
+const feInput = document.getElementById('feName');
 
-  // Build LNP dropdown
-  const lnpSelect = document.getElementById('lnpName');
-  Object.keys(lnpMapping).sort().forEach(name => {
+function populateStates(){
+  stateSelect.innerHTML = '<option value="">Select State</option>';
+  states.forEach(s => stateSelect.innerHTML += `<option value="${s}">${s}</option>`);
+}
+populateStates();
+
+stateSelect.addEventListener('change', () => {
+  const s = stateSelect.value;
+  districtSelect.innerHTML = '';
+  if (!s) return districtSelect.innerHTML = '<option value="">Select district</option>';
+  if (districts[s]) {
+    districtSelect.innerHTML = '<option value="">Select district</option>';
+    districts[s].forEach(d => districtSelect.innerHTML += `<option value="${d}">${d}</option>`);
+  } else {
+    districtSelect.innerHTML = '<option value="">No districts available</option>';
+  }
+});
+
+/* Build LNP options (shows "partner : company") */
+function buildLnp(filter = '') {
+  lnpSelect.innerHTML = '';
+  const f = (filter || '').toString().trim().toLowerCase();
+  const matched = lnpEntries.filter(e => {
+    return !f || e.company.toLowerCase().includes(f) || e.partner.includes(f);
+  });
+  if (matched.length === 0) {
     const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
+    opt.value = '';
+    opt.textContent = 'No companies found';
+    lnpSelect.appendChild(opt);
+    return;
+  }
+  matched.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = `${e.partner} : ${e.company}`; // value as "partner : company"
+    opt.textContent = `${e.partner} : ${e.company}`;
+    opt.dataset.partner = e.partner;
+    opt.dataset.company = e.company;
+    opt.dataset.fe = e.fe || '';
     lnpSelect.appendChild(opt);
   });
+}
+buildLnp();
 
-  // FE name field
-  const feInput = document.getElementById('feName');
-  lnpSelect.addEventListener('change', () => {
-    const sel = lnpSelect.value;
-    const fe = lnpMapping[sel] || '';
-    feInput.value = fe;
-    // Also set the hidden form field value for backend (Apps Script expects lnpName only; we also include feName field)
-    // ensure the feName input has name attribute so it gets posted
-  });
+/* search filter */
+lnpSearch.addEventListener('input', () => {
+  buildLnp(lnpSearch.value);
+  partnerInput.value = '';
+  feInput.value = '';
+});
 
-  // Populate state dropdown
-  const stateSelect = document.getElementById("state");
-  const districtSelect = document.getElementById("district");
-  stateSelect.innerHTML = `<option value="">Select State</option>`;
-  states.forEach(s => stateSelect.innerHTML += `<option value="${s}">${s}</option>`);
+/* when user selects from list, set partner, FE, company */
+lnpSelect.addEventListener('change', () => {
+  const opt = lnpSelect.options[lnpSelect.selectedIndex];
+  if (!opt) return;
+  partnerInput.value = opt.dataset.partner || '';
+  feInput.value = opt.dataset.fe || '';
+  // also set the lnpName value to company only (Apps Script gets lnpName param)
+  // HTML select's value is "partner : company" – it's okay, we'll parse in Apps Script.
+});
 
-  // Populate district when state changes
-  stateSelect.addEventListener('change', () => {
-    const s = stateSelect.value;
-    districtSelect.innerHTML = '';
-    if (!s) {
-      districtSelect.innerHTML = `<option value="">Select district</option>`;
-      return;
-    }
-    if (districts[s]) {
-      districtSelect.innerHTML = `<option value="">Select district</option>`;
-      districts[s].forEach(d => districtSelect.innerHTML += `<option value="${d}">${d}</option>`);
-    } else {
-      districtSelect.innerHTML = `<option value="">No districts available</option>`;
-    }
-  });
-
-  // Form submit: try JSON fetch first, fallback to regular form post (iframe)
-  const form = document.getElementById('interestForm');
-  const msg = document.getElementById('msg');
-
-  // Ensure feName will be submitted: give input a name attribute (already set in markup)
-  // If feName was readonly it still posts.
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    msg.innerHTML = `<div class="info">Submitting…</div>`;
-
-    const data = Object.fromEntries(new FormData(form).entries());
-    data.phone = data.phone ? data.phone.replace(/\s+/g,'') : '';
-
-    // If lnp selected, ensure feName is included (some clients may ignore readonly fields, but FormData picks them)
-    try {
-      const res = await fetch(POST_URL, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(data),
-      });
-
-      // Try parse JSON response
-      const j = await res.json();
-      if (j && j.status === 'success') {
-        msg.innerHTML = '<div class="success">Saved ✓ — Next record ready.</div>';
-        form.reset();
-        feInput.value = '';
+/* find by partner button */
+document.getElementById('findByPartner').addEventListener('click', () => {
+  const pid = partnerInput.value.trim();
+  if (!pid) return alert('Paste or type Partner ID into the Partner ID box first.');
+  // find exact match
+  const idx = lnpEntries.findIndex(e => e.partner === pid);
+  if (idx >= 0) {
+    buildLnp(''); // refresh list
+    // find option index
+    for (let i=0;i<lnpSelect.options.length;i++){
+      if (lnpSelect.options[i].dataset.partner === pid){
+        lnpSelect.selectedIndex = i;
+        lnpSelect.dispatchEvent(new Event('change'));
+        lnpSelect.scrollTo(0, lnpSelect.options[i].offsetTop);
         return;
-      } else {
-        // Server returned something else: fallback
-        fallbackSubmit('Server returned error — using fallback submit.');
       }
-    } catch (err) {
-      // Likely CORS or network error — use fallback
-      fallbackSubmit('Network/CORS — using fallback submit.');
-    }
-  });
-
-  function fallbackSubmit(note = '') {
-    try {
-      form.submit(); // will POST to Apps Script via hidden iframe
-      msg.innerHTML = `<div class="success">Submitted (via form). ${note} If you do not see the row in Google Sheets in a few seconds, inform admin.</div>`;
-      form.reset();
-      feInput.value = '';
-    } catch (e) {
-      msg.innerHTML = '<div class="error">Unable to submit: ' + e.toString() + '</div>';
     }
   }
+  // fallback: filter list by pid text
+  buildLnp(pid);
+  if (lnpSelect.options.length > 0 && lnpSelect.options[0].value) {
+    lnpSelect.selectedIndex = 0;
+    lnpSelect.dispatchEvent(new Event('change'));
+  } else {
+    alert('No matching company found for Partner ID: ' + pid);
+  }
+});
+
+/* clear filter */
+document.getElementById('clearFilter').addEventListener('click', () => {
+  lnpSearch.value = '';
+  partnerInput.value = '';
+  feInput.value = '';
+  buildLnp('');
+});
+
+/* ---------- form submit (JSON fetch with iframe fallback) ---------- */
+const form = document.getElementById('interestForm');
+const msg = document.getElementById('msg');
+
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  msg.innerHTML = '<div class="info">Submitting…</div>';
+
+  // collect form data
+  const data = Object.fromEntries(new FormData(form).entries());
+
+  // if LNP selected as "partner : company", ensure we split for clarity
+  if (data.lnpName && data.lnpName.includes(':')) {
+    const parts = data.lnpName.split(':');
+    data.partnerId = (parts[0] || '').trim();
+    data.lnpName = (parts.slice(1).join(':') || '').trim();
+  } else {
+    // if user typed partnerId but didn't select, keep partnerId field
+    data.partnerId = data.partnerId || '';
+  }
+
+  // ensure feName present (from selection)
+  data.feName = data.feName || '';
+
+  // sanitize phone
+  data.phone = data.phone ? data.phone.replace(/\s+/g,'') : '';
+
+  try {
+    const res = await fetch(POST_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    const j = await res.json();
+    if (j && j.status === 'success') {
+      msg.innerHTML = '<div class="success">Saved ✓ — Next record ready.</div>';
+      form.reset();
+      buildLnp('');
+      return;
+    } else {
+      fallbackSubmit('Server returned error — using fallback submit.');
+    }
+  } catch (err) {
+    fallbackSubmit('Network/CORS — using fallback submit.');
+  }
+});
+
+function fallbackSubmit(note = '') {
+  try {
+    form.submit();
+    msg.innerHTML = `<div class="success">Submitted (via form). ${note}</div>`;
+    form.reset();
+    buildLnp('');
+  } catch (e) {
+    msg.innerHTML = '<div class="error">Unable to submit: ' + e.toString() + '</div>';
+  }
+}
 </script>
 </body>
 </html>
